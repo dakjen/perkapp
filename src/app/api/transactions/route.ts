@@ -1,22 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { getDb } from '@/lib/db'
 
 // GET /api/transactions?company_id=xxx
 export async function GET(req: NextRequest) {
-  const supabase = createClient()
+  const sql = getDb()
   const companyId = req.nextUrl.searchParams.get('company_id')
   const memberId = req.nextUrl.searchParams.get('member_id')
 
-  let query = supabase
-    .from('transactions')
-    .select('*, members(name, employment_type)')
-    .order('created_at', { ascending: false })
+  let data
+  if (companyId && memberId) {
+    data = await sql`
+      SELECT t.*, m.name as member_name, m.employment_type
+      FROM transactions t JOIN members m ON t.member_id = m.id
+      WHERE t.company_id = ${companyId} AND t.member_id = ${memberId}
+      ORDER BY t.created_at DESC
+    `
+  } else if (companyId) {
+    data = await sql`
+      SELECT t.*, m.name as member_name, m.employment_type
+      FROM transactions t JOIN members m ON t.member_id = m.id
+      WHERE t.company_id = ${companyId}
+      ORDER BY t.created_at DESC
+    `
+  } else if (memberId) {
+    data = await sql`
+      SELECT t.*, m.name as member_name, m.employment_type
+      FROM transactions t JOIN members m ON t.member_id = m.id
+      WHERE t.member_id = ${memberId}
+      ORDER BY t.created_at DESC
+    `
+  } else {
+    data = await sql`
+      SELECT t.*, m.name as member_name, m.employment_type
+      FROM transactions t JOIN members m ON t.member_id = m.id
+      ORDER BY t.created_at DESC
+    `
+  }
 
-  if (companyId) query = query.eq('company_id', companyId)
-  if (memberId) query = query.eq('member_id', memberId)
-
-  const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
 
@@ -26,26 +46,25 @@ export async function PATCH(req: NextRequest) {
     const { id, status, rejection_note } = await req.json()
     if (!id || !status) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
-    const supabase = createAdminClient()
+    const sql = getDb()
 
-    const { data, error } = await supabase
-      .from('transactions')
-      .update({ status, rejection_note: rejection_note ?? null })
-      .eq('id', id)
-      .select()
-      .single()
+    const [updated] = await sql`
+      UPDATE transactions SET status = ${status}, rejection_note = ${rejection_note ?? null}
+      WHERE id = ${id}
+      RETURNING *
+    `
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!updated) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
 
     // If approved, deduct from member balance
-    if (status === 'approved' && data) {
-      await supabase.rpc('deduct_member_balance', {
-        p_member_id: data.member_id,
-        p_amount: data.amount,
-      })
+    if (status === 'approved') {
+      await sql`
+        UPDATE members SET balance = balance - ${updated.amount}
+        WHERE id = ${updated.member_id}
+      `
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(updated)
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

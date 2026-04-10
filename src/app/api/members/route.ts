@@ -1,24 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { getDb } from '@/lib/db'
 import {
   createCardholder,
   createVirtualCard,
   categoriesToMCCs,
 } from '@/lib/stripe'
 
-// GET /api/members?company_id=xxx  — list all members for a company
+// GET /api/members?company_id=xxx
 export async function GET(req: NextRequest) {
-  const supabase = createClient()
+  const sql = getDb()
   const companyId = req.nextUrl.searchParams.get('company_id')
   if (!companyId) return NextResponse.json({ error: 'Missing company_id' }, { status: 400 })
 
-  const { data, error } = await supabase
-    .from('members')
-    .select('*')
-    .eq('company_id', companyId)
-    .order('created_at', { ascending: true })
+  const data = await sql`
+    SELECT * FROM members
+    WHERE company_id = ${companyId}
+    ORDER BY created_at ASC
+  `
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
 
@@ -35,82 +34,49 @@ export async function POST(req: NextRequest) {
       categories,
     } = await req.json()
 
-    const supabase = createAdminClient()
+    const sql = getDb()
 
-    // 1. Get company info (need name and Stripe IDs)
-    const { data: company, error: coError } = await supabase
-      .from('companies')
-      .select('name, stripe_treasury_account_id')
-      .eq('id', company_id)
-      .single()
+    // 1. Get company info
+    const [company] = await sql`
+      SELECT name, stripe_treasury_account_id FROM companies WHERE id = ${company_id}
+    `
 
-    if (coError || !company) {
+    if (!company) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 })
     }
 
-    // 2. Create the member record first (no user_id yet — they haven't accepted invite)
-    const { data: member, error: memberError } = await supabase
-      .from('members')
-      .insert({
-        company_id,
-        name,
-        email,
-        employment_type,
-        stipend_amount,
-        stipend_frequency,
-        balance: stipend_amount,
-        card_limit: stipend_amount,
-        categories,
-      })
-      .select()
-      .single()
+    // 2. Create the member record
+    const [member] = await sql`
+      INSERT INTO members (company_id, name, email, employment_type, stipend_amount, stipend_frequency, balance, card_limit, categories)
+      VALUES (${company_id}, ${name}, ${email}, ${employment_type}, ${stipend_amount}, ${stipend_frequency}, ${stipend_amount}, ${stipend_amount}, ${categories})
+      RETURNING *
+    `
 
-    if (memberError || !member) {
-      return NextResponse.json({ error: memberError?.message }, { status: 500 })
-    }
-
-    // 3. Create Stripe cardholder
-    // NOTE: Requires Stripe Issuing approval
-    // Comment out and set dummy IDs for dev until approved
+    // 3. Create Stripe cardholder + card (requires Issuing approval)
     try {
       const cardholder = await createCardholder(name, email, company.name)
       const mccs = categoriesToMCCs(categories)
       const card = await createVirtualCard(
         cardholder.id,
-        Math.round(stipend_amount * 100),  // convert to cents
+        Math.round(stipend_amount * 100),
         mccs
       )
 
-      // Update member with Stripe card IDs
-      await supabase
-        .from('members')
-        .update({
-          stripe_cardholder_id: cardholder.id,
-          stripe_card_id: card.id,
-        })
-        .eq('id', member.id)
+      await sql`
+        UPDATE members SET stripe_cardholder_id = ${cardholder.id}, stripe_card_id = ${card.id}
+        WHERE id = ${member.id}
+      `
     } catch (stripeErr: any) {
       console.warn('Stripe card creation skipped (Issuing not yet active):', stripeErr.message)
-      // Member is still created — card will be issued when Stripe Issuing is approved
     }
 
     // 4. Create invitation token
-    const { data: invite, error: inviteError } = await supabase
-      .from('invitations')
-      .insert({
-        company_id,
-        member_id: member.id,
-        email,
-      })
-      .select()
-      .single()
+    const [invite] = await sql`
+      INSERT INTO invitations (company_id, member_id, email)
+      VALUES (${company_id}, ${member.id}, ${email})
+      RETURNING *
+    `
 
-    if (inviteError) console.error('Invite creation error:', inviteError)
-
-    // 5. Send invite email via Supabase
-    // In production: use Supabase's email or your own (Resend, SendGrid, etc.)
-    // The invite link would be: ${APP_URL}/accept-invite?token=${invite.token}
-    // For now we return the token so you can test manually
     console.log(`Invite link: ${process.env.NEXT_PUBLIC_APP_URL}/accept-invite?token=${invite?.token}`)
 
     return NextResponse.json({ member, inviteToken: invite?.token }, { status: 201 })
