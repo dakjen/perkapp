@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { hash } from 'bcryptjs'
 import { getDb } from '@/lib/db'
 import {
   createCardholder,
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
       company_id,
       name,
       email,
+      password,
       employment_type,
       stipend_amount,
       stipend_frequency,
@@ -35,6 +37,7 @@ export async function POST(req: NextRequest) {
     } = await req.json()
 
     const sql = getDb()
+    const passwordHash = password ? await hash(password, 12) : null
 
     // 1. Get company info
     const [company] = await sql`
@@ -47,8 +50,8 @@ export async function POST(req: NextRequest) {
 
     // 2. Create the member record
     const [member] = await sql`
-      INSERT INTO members (company_id, name, email, employment_type, stipend_amount, stipend_frequency, balance, card_limit, categories)
-      VALUES (${company_id}, ${name}, ${email}, ${employment_type}, ${stipend_amount}, ${stipend_frequency}, ${stipend_amount}, ${stipend_amount}, ${categories})
+      INSERT INTO members (company_id, name, email, password_hash, employment_type, stipend_amount, stipend_frequency, balance, card_limit, categories)
+      VALUES (${company_id}, ${name}, ${email}, ${passwordHash}, ${employment_type}, ${stipend_amount}, ${stipend_frequency}, ${stipend_amount}, ${stipend_amount}, ${categories})
       RETURNING *
     `
 

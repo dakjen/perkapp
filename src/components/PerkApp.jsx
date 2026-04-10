@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Building2, User, CreditCard, Lock, CheckCircle, RefreshCw, FileText, Lightbulb, Info, AlertTriangle, Sparkles, Leaf, Award, Star, Trophy, Upload, ChevronRight, DollarSign, Shield, Laptop, Coffee, Heart, Globe, Clock, BookOpen, Dumbbell, Shirt, Home, Plane, Palette, Baby, Handshake, Bell, Activity, TrendingUp, Wallet, Gift } from "lucide-react";
 
 const C = {
@@ -190,22 +190,22 @@ function BackHeader({title,onBack}){
 }
 
 // ── LOGIN ──────────────────────────────────────────────────────────────────
-function Login({companies,onLogin,onCreateCompany}){
+function Login({onLogin,onCreateCompany}){
   const [role,setRole]=useState(null);
   const [email,setEmail]=useState("");
   const [pass,setPass]=useState("");
   const [err,setErr]=useState("");
+  const [loading,setLoading]=useState(false);
   const reset=()=>{setRole(null);setEmail("");setPass("");setErr("");};
-  const go=()=>{
-    setErr("");
-    if(role==="admin"){
-      const co=companies.find(c=>c.adminEmail===email&&c.adminPass===pass);
-      if(co) onLogin("admin",null,co); else setErr("No admin account found with those credentials");
-    } else {
-      let found=null,foundCo=null;
-      for(const co of companies){const m=co.members.find(m=>m.email===email&&m.pass===pass);if(m){found=m;foundCo=co;break;}}
-      if(found) onLogin("employee",found.id,foundCo); else setErr("No account found with those credentials");
-    }
+  const go=async()=>{
+    setErr("");setLoading(true);
+    try{
+      const res=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pass,role})});
+      const data=await res.json();
+      if(!res.ok){setErr(data.error||"Login failed");setLoading(false);return;}
+      if(role==="admin") onLogin("admin",null,data.company.id);
+      else onLogin("employee",data.memberId,data.companyId);
+    }catch(e){setErr("Something went wrong");setLoading(false);}
   };
 
   if(!role) return (
@@ -229,10 +229,6 @@ function Login({companies,onLogin,onCreateCompany}){
         <button onClick={onCreateCompany} style={{background:"none",border:"none",color:C.accent,fontSize:14,fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>Set up a new company</button>
         <div style={{marginTop:10,fontSize:12,color:C.muted}}>perk. · $19/mo + $5 per person</div>
       </div>
-      <div style={{marginTop:24,background:C.card,borderRadius:14,padding:14,border:`1px solid ${C.border}`}}>
-        <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:"0.06em",marginBottom:8,textTransform:"uppercase"}}>Demo credentials</div>
-        <div style={{fontSize:12,color:C.muted,lineHeight:2}}>Admin: admin@studionova.com / admin123<br/>Employee: jamie@studionova.com / jamie123</div>
-      </div>
     </div>
   );
 
@@ -250,7 +246,7 @@ function Login({companies,onLogin,onCreateCompany}){
       <Field label="Email" value={email} onChange={setEmail} type="email" placeholder="you@company.com"/>
       <Field label="Password" value={pass} onChange={setPass} type="password" placeholder="••••••••"/>
       {err&&<div style={{color:C.danger,fontSize:13,marginBottom:14,padding:"10px 14px",background:"#FDECEA",borderRadius:10}}>{err}</div>}
-      <Btn onClick={go} disabled={!email||!pass}>Sign In</Btn>
+      <Btn onClick={go} disabled={!email||!pass||loading}>{loading?"Signing in...":"Sign In"}</Btn>
       {role==="employee"&&(
         <div style={{marginTop:20,background:C.card,borderRadius:14,padding:14,border:`1px solid ${C.border}`,textAlign:"center"}}>
           <div style={{fontSize:13,color:C.muted,lineHeight:1.7}}>Don't have an account?<br/><span style={{color:C.text,fontWeight:600}}>Ask your company admin to invite you.</span></div>
@@ -271,6 +267,18 @@ function CreateCompany({onCreate,onBack}){
   const [name,setName]=useState("");
   const [email,setEmail]=useState("");
   const [pass,setPass]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [err,setErr]=useState("");
+  const handleCreate=async()=>{
+    if(!name||!email||!pass)return;
+    setLoading(true);setErr("");
+    try{
+      const res=await fetch("/api/companies",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password:pass})});
+      const data=await res.json();
+      if(!res.ok){setErr(data.error||"Failed to create company");setLoading(false);return;}
+      onCreate(data.company);
+    }catch(e){setErr("Something went wrong");setLoading(false);}
+  };
   return (
     <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,fontSize:14,cursor:"pointer",marginBottom:20,padding:0}}>← Back</button>
@@ -281,10 +289,11 @@ function CreateCompany({onCreate,onBack}){
       <Field label="Password" value={pass} onChange={setPass} type="password" placeholder="Choose a password"/>
       <div style={{background:C.card,borderRadius:14,padding:14,border:`1px solid ${C.border}`,marginBottom:20}}>
         <div style={{fontSize:13,color:C.muted,lineHeight:1.7}}>
-          Pricing: <span style={{color:C.accent,fontWeight:700}}>$19/mo</span> base (up to 3 members) + <span style={{color:C.accent,fontWeight:700}}>$5/mo</span> per additional member. Discounts unlock automatically as you pre-load funds.
+          Pricing: <span style={{color:C.accent,fontWeight:700}}>$19/mo</span> base (up to 3 members) + <span style={{color:C.accent,fontWeight:700}}>$5/mo</span> per additional member.
         </div>
       </div>
-      <Btn onClick={()=>{if(!name||!email||!pass)return;onCreate({name,adminEmail:email,adminPass:pass});}} disabled={!name||!email||!pass}>Create Account</Btn>
+      {err&&<div style={{color:C.danger,fontSize:13,marginBottom:14,padding:"10px 14px",background:"#FDECEA",borderRadius:10}}>{err}</div>}
+      <Btn onClick={handleCreate} disabled={!name||!email||!pass||loading}>{loading?"Creating...":"Create Account"}</Btn>
     </div>
   );
 }
@@ -351,15 +360,23 @@ function AdminPerks({company,onUpdate}){
   const openAdd=()=>{setIconId("heart");setTitle("");setDesc("");setCompanyPaid(false);setCostPerPerson("");setFreq("monthly");setTaxable(true);setAdding(true);setEditing(null);};
   const openEdit=p=>{setIconId(p.iconId||"heart");setTitle(p.title);setDesc(p.desc);setCompanyPaid(!!p.companyPaid);setCostPerPerson(p.costPerPerson?String(p.costPerPerson):"");setFreq(p.freq||"monthly");setTaxable(p.taxable!==false);setEditing(p.id);setAdding(true);};
   const cancel=()=>{setAdding(false);setEditing(null);};
-  const remove=id=>onUpdate({...company,perks:perks.filter(p=>p.id!==id)});
+  const remove=async(id)=>{
+    await fetch("/api/perks",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
+    onUpdate({...company,perks:perks.filter(p=>p.id!==id)});
+  };
 
-  const save=()=>{
+  const save=async()=>{
     if(!title.trim()) return;
-    const data={iconId,title,desc,companyPaid,costPerPerson:companyPaid&&costPerPerson?Number(costPerPerson):null,freq:companyPaid?freq:null,taxable:companyPaid?taxable:false};
-    const updated=editing
-      ?{...company,perks:perks.map(p=>p.id===editing?{...p,...data}:p)}
-      :{...company,perks:[...perks,{id:`p${Date.now()}`,...data}]};
-    onUpdate(updated);
+    const payload={icon_id:iconId,title,description:desc,company_paid:companyPaid,cost_per_person:companyPaid&&costPerPerson?Number(costPerPerson):null,frequency:companyPaid?freq:null,taxable:companyPaid?taxable:false};
+    if(editing){
+      const res=await fetch("/api/perks",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:editing,...payload})});
+      const p=await res.json();
+      onUpdate({...company,perks:perks.map(x=>x.id===editing?{id:p.id,iconId:p.icon_id,title:p.title,desc:p.description,companyPaid:p.company_paid,costPerPerson:p.cost_per_person?Number(p.cost_per_person):null,freq:p.frequency,taxable:p.taxable}:x)});
+    } else {
+      const res=await fetch("/api/perks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({company_id:company.id,...payload})});
+      const p=await res.json();
+      onUpdate({...company,perks:[...perks,{id:p.id,iconId:p.icon_id,title:p.title,desc:p.description,companyPaid:p.company_paid,costPerPerson:p.cost_per_person?Number(p.cost_per_person):null,freq:p.frequency,taxable:p.taxable}]});
+    }
     cancel();
   };
 
@@ -910,13 +927,19 @@ const ADMIN_TABS = [
 ];
 
 // ── ADMIN APP ──────────────────────────────────────────────────────────────
-function AdminApp({company,onUpdate,onLogout}){
+function AdminApp({company,onUpdate,onRefresh,onLogout}){
   const [tab,setTab]=useState("dashboard");
   const [sub,setSub]=useState(null);
   const pending=company.transactions.filter(t=>t.status==="pending").length;
-  const updateTx=(id,status,note)=>onUpdate({...company,transactions:company.transactions.map(t=>t.id===id?{...t,status,note:note||t.note}:t)});
-  const addMember=m=>{onUpdate({...company,members:[...company.members,m]});setSub(null);};
-  if(sub==="addMember") return <AddMember onAdd={addMember} onBack={()=>setSub(null)}/>;
+  const updateTx=async(id,status,note)=>{
+    await fetch("/api/transactions",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,status,rejection_note:note})});
+    onRefresh();
+  };
+  const handleAddMember=async(m)=>{
+    await fetch("/api/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({company_id:company.id,name:m.name,email:m.email,password:m.pass,employment_type:m.type,stipend_amount:m.stipend,stipend_frequency:m.frequency,categories:m.categories})});
+    onRefresh();setSub(null);
+  };
+  if(sub==="addMember") return <AddMember onAdd={handleAddMember} onBack={()=>setSub(null)}/>;
   if(sub==="hiw") return <HowItWorks company={company} onBack={()=>setSub(null)}/>;
   return (
     <>
@@ -1351,22 +1374,105 @@ function EmployeeApp({company,userId,onLogout}){
 }
 
 // ── ROOT ───────────────────────────────────────────────────────────────────
+function loadSession(){
+  if(typeof window==="undefined")return null;
+  try{const s=localStorage.getItem("perk_session");return s?JSON.parse(s):null;}catch{return null;}
+}
+function saveSession(data){
+  if(typeof window==="undefined")return;
+  try{localStorage.setItem("perk_session",JSON.stringify(data));}catch{}
+}
+function clearSession(){
+  if(typeof window==="undefined")return;
+  localStorage.removeItem("perk_session");
+}
+
+function adaptCompany(raw,members,transactions,perks){
+  return {
+    ...raw,
+    adminEmail:raw.admin_email,
+    brandColor:raw.brand_color||C.accent,
+    accountBalance:Number(raw.account_balance)||0,
+    members:(members||[]).map(m=>({
+      id:m.id,name:m.name,email:m.email,type:m.employment_type,
+      stipend:Number(m.stipend_amount),frequency:m.stipend_frequency,
+      categories:m.categories||[],balance:Number(m.balance),cardLimit:Number(m.card_limit),
+    })),
+    transactions:(transactions||[]).map(t=>({
+      id:t.id,userId:t.member_id,name:t.member_name,amount:Number(t.amount),
+      merchant:t.merchant,category:t.category,date:t.transaction_date,
+      status:t.status,note:t.rejection_note||"",
+    })),
+    perks:(perks||[]).map(p=>({
+      id:p.id,iconId:p.icon_id,title:p.title,desc:p.description,
+      companyPaid:p.company_paid,costPerPerson:p.cost_per_person?Number(p.cost_per_person):null,
+      freq:p.frequency,taxable:p.taxable,
+    })),
+  };
+}
+
 export default function App(){
-  const [companies,setCompanies]=useState(SEED);
-  const [co,setCo]=useState(null);
-  const [screen,setScreen]=useState("login");
+  const [screen,setScreen]=useState("loading");
+  const [companyData,setCompanyData]=useState(null);
   const [userId,setUserId]=useState(null);
-  const updateCo=updated=>{setCompanies(p=>p.map(c=>c.id===updated.id?updated:c));setCo(updated);};
-  const createCo=data=>{const n={id:`c${Date.now()}`,...data,logo:null,brandColor:C.accent,accountBalance:0,perks:[],members:[],transactions:[]};setCompanies(p=>[...p,n]);setScreen("login");};
-  const login=(r,uid,company)=>{setUserId(uid);setCo(company);setScreen(r);};
-  const logout=()=>{setUserId(null);setCo(null);setScreen("login");};
+  const [sessionInfo,setSessionInfo]=useState(null);
+
+  const fetchData=async(companyId)=>{
+    const [company,members,transactions,perks]=await Promise.all([
+      fetch(`/api/companies?id=${companyId}`).then(r=>r.json()),
+      fetch(`/api/members?company_id=${companyId}`).then(r=>r.json()),
+      fetch(`/api/transactions?company_id=${companyId}`).then(r=>r.json()),
+      fetch(`/api/perks?company_id=${companyId}`).then(r=>r.json()),
+    ]);
+    return adaptCompany(company,members,transactions,perks);
+  };
+
+  useEffect(()=>{
+    const saved=loadSession();
+    if(saved&&saved.companyId){
+      fetchData(saved.companyId).then(data=>{
+        setCompanyData(data);setUserId(saved.userId||null);
+        setSessionInfo(saved);setScreen(saved.screen);
+      }).catch(()=>{clearSession();setScreen("login");});
+    } else {
+      setScreen("login");
+    }
+  },[]);
+
+  const onRefresh=async()=>{
+    if(!sessionInfo?.companyId)return;
+    const data=await fetchData(sessionInfo.companyId);
+    setCompanyData(data);
+  };
+
+  const login=async(role,uid,companyId)=>{
+    const data=await fetchData(companyId);
+    const s={screen:role==="admin"?"admin":"employee",userId:uid,companyId};
+    setCompanyData(data);setUserId(uid);setSessionInfo(s);setScreen(s.screen);
+    saveSession(s);
+  };
+
+  const createCo=(company)=>{
+    setScreen("login");
+  };
+
+  const logout=()=>{clearSession();setUserId(null);setCompanyData(null);setSessionInfo(null);setScreen("login");};
+
+  const updateCo=(updated)=>{setCompanyData(updated);};
+
+  if(screen==="loading") return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Source Serif 4',Georgia,serif"}}>
+      <div style={{fontSize:40,fontWeight:900,color:C.pop,fontFamily:"'Playfair Display',serif",fontStyle:"italic"}}>perk.</div>
+    </div>
+  );
+
   return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",fontFamily:"'Source Serif 4',Georgia,serif"}}>
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",maxWidth:960,width:"100%",margin:"0 auto"}}>
-        {screen==="login"&&<div style={{flex:1,overflowY:"auto"}}><Login companies={companies} onLogin={login} onCreateCompany={()=>setScreen("createCompany")}/></div>}
+        {screen==="login"&&<div style={{flex:1,overflowY:"auto"}}><Login onLogin={login} onCreateCompany={()=>setScreen("createCompany")}/></div>}
         {screen==="createCompany"&&<div style={{flex:1,overflowY:"auto"}}><CreateCompany onCreate={createCo} onBack={()=>setScreen("login")}/></div>}
-        {screen==="admin"&&co&&<AdminApp company={co} onUpdate={updateCo} onLogout={logout}/>}
-        {screen==="employee"&&co&&<EmployeeApp company={co} userId={userId} onLogout={logout}/>}
+        {screen==="admin"&&companyData&&<AdminApp company={companyData} onUpdate={updateCo} onRefresh={onRefresh} onLogout={logout}/>}
+        {screen==="employee"&&companyData&&<EmployeeApp company={companyData} userId={userId} onLogout={logout}/>}
       </div>
     </div>
   );
