@@ -18,12 +18,18 @@ export async function POST(req: NextRequest) {
     const { customer, subscription } = await createCompanySubscription(name, email, 0)
 
     // 2. Create Stripe Treasury financial account (wallet)
-    const wallet = await createCompanyWallet(customer.id)
+    let walletId = null
+    try {
+      const wallet = await createCompanyWallet(customer.id)
+      walletId = wallet.id
+    } catch (err: any) {
+      console.warn('Treasury wallet skipped (not yet approved):', err.message)
+    }
 
     // 3. Create the company record
     const [company] = await sql`
       INSERT INTO companies (name, admin_email, admin_password_hash, stripe_customer_id, stripe_subscription_id, stripe_treasury_account_id)
-      VALUES (${name}, ${email}, ${passwordHash}, ${customer.id}, ${subscription.id}, ${wallet.id})
+      VALUES (${name}, ${email}, ${passwordHash}, ${customer.id}, ${subscription.id}, ${walletId})
       RETURNING *
     `
 

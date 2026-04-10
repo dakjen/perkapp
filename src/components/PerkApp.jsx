@@ -734,43 +734,11 @@ function HowItWorks({company,onBack}){
         </div>
 
         <SLabel>Balance discount tiers</SLabel>
-        <div style={{background:C.card,borderRadius:18,border:`1px solid ${C.border}`,overflow:"hidden",marginBottom:24}}>
-          <div style={{padding:"14px 16px",borderBottom:`1px solid ${C.border}`,background:C.accentBg}}>
-            <div style={{fontSize:13,color:C.text,fontWeight:600,lineHeight:1.6}}>The more you pre-load, the less you pay. Discounts apply automatically.</div>
-          </div>
-          {TIERS.map((t,i)=>{
-            const isActive=currentTier===t;
-            const {TierIcon}=t;
-            return (
-              <div key={t.label} style={{display:"flex",alignItems:"center",padding:"14px 16px",borderBottom:i<TIERS.length-1?`1px solid ${C.border}`:"none",background:isActive?`${C.accent}12`:"transparent"}}>
-                <div style={{width:44,height:44,borderRadius:14,background:isActive?C.accent:C.surface,border:`2px solid ${isActive?C.accent:C.border}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginRight:14}}>
-                  <TierIcon size={20} color={isActive?"#0D1A0D":C.muted}/>
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <div style={{fontWeight:700,color:isActive?C.accent:C.text,fontSize:15}}>{t.label}</div>
-                    <div style={{fontWeight:800,color:isActive?C.accent:C.muted,fontSize:15}}>{t.discount===0?"Full price":`${t.discount}% off`}</div>
-                  </div>
-                  <div style={{fontSize:12,color:C.muted,marginTop:2}}>{t.max===Infinity?`$${t.min.toLocaleString()}+`:`$${t.min.toLocaleString()} – $${t.max.toLocaleString()}`} pre-loaded</div>
-                  {isActive&&<div style={{fontSize:12,color:C.accent,fontWeight:600,marginTop:4}}>Your tier · paying ${discounted}/mo</div>}
-                </div>
-              </div>
-            );
-          })}
+        <div style={{background:C.card,borderRadius:18,border:`1px solid ${C.border}`,padding:"20px",marginBottom:24,textAlign:"center"}}>
+          <Wallet size={28} color={C.muted} style={{marginBottom:8}}/>
+          <div style={{fontSize:15,fontWeight:700,color:C.text,marginBottom:6}}>Coming soon</div>
+          <div style={{fontSize:13,color:C.muted,lineHeight:1.6}}>Pre-load your wallet to unlock automatic discounts on your monthly subscription. Bronze (10% off), Silver (20% off), and Gold (30% off) tiers will be available soon.</div>
         </div>
-
-        {nextTier&&(
-          <div style={{background:C.card,borderRadius:16,border:`1px solid ${C.border}`,padding:"14px 16px",marginBottom:24}}>
-            <div style={{fontSize:13,color:C.text,fontWeight:600,marginBottom:8}}>Add <span style={{color:C.accent}}>${(nextTier.min-balance).toLocaleString()}</span> more to unlock {nextTier.discount}% off</div>
-            <div style={{background:C.surface,borderRadius:100,height:6,overflow:"hidden"}}>
-              <div style={{width:`${Math.min((balance/nextTier.min)*100,100)}%`,height:"100%",background:C.accent,borderRadius:100}}/>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
-              <span style={{fontSize:11,color:C.muted}}>${balance.toLocaleString()} loaded</span>
-              <span style={{fontSize:11,color:C.muted}}>${nextTier.min.toLocaleString()} for {nextTier.label}</span>
-            </div>
-          </div>
-        )}
 
         <SLabel>How the money flows</SLabel>
         {HOW_STEPS.map(({StepIcon,title,body},i)=>(
@@ -821,35 +789,11 @@ function AdminAccount({company,onUpdate,onShowHIW}){
 
         {section==="account"&&(
           <div style={{padding:20}}>
-            <div style={{background:`linear-gradient(135deg,${C.accentBg},#E8F0D8)`,border:`1px solid ${C.accent}`,borderRadius:22,padding:"22px",marginBottom:20}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-                <div>
-                  <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Account Balance</div>
-                  <div style={{fontSize:44,fontWeight:800,color:C.accentLight,letterSpacing:"-1px",fontFamily:"'Playfair Display',serif"}}>{fmt(balance)}</div>
-                  <div style={{fontSize:12,color:C.muted,marginTop:4}}>Available for team spending</div>
-                </div>
-                <div style={{background:C.accentLight,borderRadius:14,padding:"8px 12px",textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                  <TierIcon size={18} color="#0D1A0D"/>
-                  <div style={{fontSize:11,fontWeight:800,color:"#1E2012"}}>{currentTier.label}</div>
-                </div>
-              </div>
-              {addingFunds?(
-                <div>
-                  <input value={fundAmount} onChange={e=>setFundAmount(e.target.value)} placeholder="Amount to add" type="number"
-                    style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 12px",color:C.text,fontSize:15,outline:"none",marginBottom:8,boxSizing:"border-box"}}/>
-                  <div style={{display:"flex",gap:8,marginBottom:8}}>
-                    {[500,1000,2500,5000].map(a=>(
-                      <div key={a} onClick={()=>setFundAmount(String(a))} style={{flex:1,textAlign:"center",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"8px 4px",cursor:"pointer",fontSize:13,fontWeight:600,color:C.accent}}>${a.toLocaleString()}</div>
-                    ))}
-                  </div>
-                  <div style={{display:"flex",gap:8}}>
-                    <Btn onClick={()=>{const amt=Number(fundAmount);if(!amt||amt<=0)return;onUpdate({...company,accountBalance:balance+amt});setAddingFunds(false);setFundAmount("");}} style={{flex:1,padding:"11px"}}>Add {fundAmount?fmt(fundAmount):""}</Btn>
-                    <Btn variant="ghost" onClick={()=>{setAddingFunds(false);setFundAmount("");}} style={{flex:1,padding:"11px"}}>Cancel</Btn>
-                  </div>
-                </div>
-              ):(
-                <Btn onClick={()=>setAddingFunds(true)} style={{padding:"11px"}}>+ Add Funds</Btn>
-              )}
+            <div style={{background:`linear-gradient(135deg,${C.accentBg},#E8F0D8)`,border:`1px solid ${C.accent}`,borderRadius:22,padding:"22px",marginBottom:20,textAlign:"center"}}>
+              <Wallet size={32} color={C.accent} style={{marginBottom:10}}/>
+              <div style={{fontSize:18,fontWeight:800,color:C.text,marginBottom:6,fontFamily:"'Playfair Display',serif"}}>Wallet & Discounts</div>
+              <div style={{fontSize:14,fontWeight:700,color:C.accent,marginBottom:8}}>Coming soon</div>
+              <div style={{fontSize:13,color:C.muted,lineHeight:1.6}}>Pre-load your perk. wallet to unlock automatic discounts on your subscription. Bronze (10%), Silver (20%), and Gold (30%) tiers.</div>
             </div>
 
             <div style={{background:C.card,borderRadius:18,border:`1px solid ${C.border}`,overflow:"hidden",marginBottom:20}}>
@@ -857,16 +801,10 @@ function AdminAccount({company,onUpdate,onShowHIW}){
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div>
                     <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Monthly subscription</div>
-                    <div style={{fontSize:28,fontWeight:700,color:C.accentLight,fontFamily:"'Playfair Display',serif"}}>${discounted}<span style={{fontSize:13,fontWeight:400,color:C.muted}}>/mo</span></div>
+                    <div style={{fontSize:28,fontWeight:700,color:C.accentLight,fontFamily:"'Playfair Display',serif"}}>${basePrice}<span style={{fontSize:13,fontWeight:400,color:C.muted}}>/mo</span></div>
                   </div>
                   <button onClick={onShowHIW} style={{background:C.accentBg,border:`1px solid ${C.accent}`,borderRadius:12,padding:"8px 12px",fontSize:12,fontWeight:700,color:C.accent,cursor:"pointer"}}>How it works</button>
                 </div>
-                {currentTier.discount>0&&(
-                  <div style={{marginTop:8,background:"#D4EDDA",borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontSize:12,color:C.success,fontWeight:600}}>{currentTier.label} discount ({currentTier.discount}% off)</span>
-                    <span style={{fontSize:12,color:C.success,fontWeight:700}}>-${savings}/mo</span>
-                  </div>
-                )}
               </div>
               <div style={{padding:"10px 16px"}}>
                 {[["Base fee (up to 3)","$19/mo"],[`${Math.max(0,memberCount-3)} extra members x $5`,`$${Math.max(0,memberCount-3)*5}/mo`],[`Total (${memberCount} members)`,`$${basePrice}/mo`]].map(([l,v],i)=>(
@@ -877,22 +815,6 @@ function AdminAccount({company,onUpdate,onShowHIW}){
                 ))}
               </div>
             </div>
-
-            {nextTier&&(
-              <div style={{background:C.card,borderRadius:16,border:`1px solid ${C.border}`,padding:"16px",marginBottom:20}}>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
-                  <div style={{fontSize:14,fontWeight:700,color:C.text}}>Next: {nextTier.label} tier</div>
-                  <div style={{fontSize:13,fontWeight:700,color:C.accent}}>{nextTier.discount}% off</div>
-                </div>
-                <div style={{background:C.surface,borderRadius:100,height:8,overflow:"hidden",marginBottom:8}}>
-                  <div style={{width:`${Math.min((balance/nextTier.min)*100,100)}%`,height:"100%",background:C.accent,borderRadius:100}}/>
-                </div>
-                <div style={{display:"flex",justifyContent:"space-between"}}>
-                  <span style={{fontSize:12,color:C.muted}}>{fmt(balance)} loaded</span>
-                  <span style={{fontSize:12,color:C.accent,fontWeight:600}}>Add {fmt(nextTier.min-balance)} more to unlock</span>
-                </div>
-              </div>
-            )}
 
             <SLabel>Account details</SLabel>
             {[["Company",company.name],["Admin email",company.adminEmail],["Members",memberCount],["Active cards",memberCount],["Next billing","Apr 1, 2026"]].map(([l,v])=>(
