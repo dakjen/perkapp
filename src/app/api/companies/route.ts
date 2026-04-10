@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { getDb } from '@/lib/db'
-import { createCompanySubscription } from '@/lib/stripe'
+import { createCompanySubscription, createCompanyWallet } from '@/lib/stripe'
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,10 +17,13 @@ export async function POST(req: NextRequest) {
     // 1. Create Stripe customer + subscription
     const { customer, subscription } = await createCompanySubscription(name, email, 0)
 
-    // 2. Create the company record
+    // 2. Create Stripe Treasury financial account (wallet)
+    const wallet = await createCompanyWallet(customer.id)
+
+    // 3. Create the company record
     const [company] = await sql`
-      INSERT INTO companies (name, admin_email, admin_password_hash, stripe_customer_id, stripe_subscription_id)
-      VALUES (${name}, ${email}, ${passwordHash}, ${customer.id}, ${subscription.id})
+      INSERT INTO companies (name, admin_email, admin_password_hash, stripe_customer_id, stripe_subscription_id, stripe_treasury_account_id)
+      VALUES (${name}, ${email}, ${passwordHash}, ${customer.id}, ${subscription.id}, ${wallet.id})
       RETURNING *
     `
 
