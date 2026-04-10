@@ -37,21 +37,19 @@ export async function createCompanySubscription(
     metadata: { source: 'perk' },
   })
 
-  // Create a metered subscription using a price you've set up in Stripe
-  // In production: create prices in Stripe dashboard or via API
-  // Base: $19/mo flat, then $5/member over 3 (handle overage via webhook)
+  // Create a product + price, then attach to a subscription
+  const product = await stripe.products.create({ name: 'perk. subscription' })
+
+  const price = await stripe.prices.create({
+    product: product.id,
+    currency: 'usd',
+    unit_amount: calcMonthlyPrice(memberCount),
+    recurring: { interval: 'month' },
+  })
+
   const subscription = await stripe.subscriptions.create({
     customer: customer.id,
-    items: [
-      {
-        price_data: {
-          currency: 'usd',
-          product_data: { name: 'perk. subscription' },
-          unit_amount: calcMonthlyPrice(memberCount),
-          recurring: { interval: 'month' },
-        },
-      },
-    ],
+    items: [{ price: price.id }],
     payment_behavior: 'default_incomplete',
     payment_settings: { save_default_payment_method: 'on_subscription' },
     expand: ['latest_invoice.payment_intent'],
@@ -64,6 +62,7 @@ export async function createCompanySubscription(
 export async function createCompanyWallet(stripeCustomerId: string) {
   // NOTE: Stripe Treasury requires application and approval
   // Docs: https://stripe.com/docs/treasury
+  // Treasury feature types vary by Stripe SDK version — cast to any until approved
   const financialAccount = await stripe.treasury.financialAccounts.create({
     supported_currencies: ['usd'],
     features: {
@@ -80,7 +79,7 @@ export async function createCompanyWallet(stripeCustomerId: string) {
         ach: { requested: true },
         us_domestic_wire: { requested: true },
       },
-    },
+    } as any,
   })
   return financialAccount
 }

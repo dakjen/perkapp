@@ -298,9 +298,7 @@ function AdminDash({company,onHIW}){
   company.transactions.filter(t=>t.status==="approved").forEach(t=>{catTotals[t.category]=(catTotals[t.category]||0)+t.amount;});
   return (
     <div style={{padding:20}}>
-      <div style={{background:`linear-gradient(135deg,${C.accentBg} 0%,#F5F0E0 60%,${C.popBg} 100%)`,border:`2px solid ${C.accentLight}`,borderRadius:24,padding:"24px",marginBottom:20,position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",top:-24,right:-24,width:120,height:120,borderRadius:"50%",background:C.pop,opacity:0.07}}/>
-        <div style={{position:"absolute",bottom:-16,left:-16,width:80,height:80,borderRadius:"50%",background:C.accent,opacity:0.08}}/>
+      <div style={{background:`linear-gradient(135deg,${C.accentBg} 0%,#F5F0E0 60%,${C.popBg} 100%)`,border:`2px solid ${C.accentLight}`,borderRadius:24,padding:"24px",marginBottom:20}}>
         <div style={{fontSize:11,color:C.accent,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8}}>Monthly Budget</div>
         <div style={{fontSize:44,fontWeight:800,color:C.accent,letterSpacing:"-1px",fontFamily:"'Playfair Display',serif"}}>{fmt(totalBudget)}</div>
         <div style={{marginTop:16,display:"flex",gap:20}}>
