@@ -1441,30 +1441,12 @@ export default function App(){
   const login=(r,uid,company)=>{setUserId(uid);setCo(company);setScreen(r);};
   const logout=()=>{setUserId(null);setCo(null);setScreen("login");};
   return (
-    <div style={{minHeight:"100vh",background:"#D6D1C7",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
-      <style>{`
-        @media (max-width: 500px) {
-          .perk-phone {
-            width: 100% !important;
-            height: 100vh !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-          }
-          .perk-wrap {
-            padding: 0 !important;
-            background: transparent !important;
-          }
-        }
-      `}</style>
-      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,300;1,8..60,400&display=swap" rel="stylesheet"/>
-      <div className="perk-phone" style={{width:390,height:844,background:C.bg,borderRadius:44,overflow:"hidden",position:"relative",display:"flex",flexDirection:"column",boxShadow:"0 32px 80px rgba(0,0,0,0.18),0 0 0 1px rgba(0,0,0,0.08)",fontFamily:"'Source Serif 4',Georgia,serif"}}>
-        <StatusBar/>
-        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-          {screen==="login"&&<div style={{flex:1,overflowY:"auto"}}><Login companies={companies} onLogin={login} onCreateCompany={()=>setScreen("createCompany")}/></div>}
-          {screen==="createCompany"&&<div style={{flex:1,overflowY:"auto"}}><CreateCompany onCreate={createCo} onBack={()=>setScreen("login")}/></div>}
-          {screen==="admin"&&co&&<AdminApp company={co} onUpdate={updateCo} onLogout={logout}/>}
-          {screen==="employee"&&co&&<EmployeeApp company={co} userId={userId} onLogout={logout}/>}
-        </div>
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",fontFamily:"'Source Serif 4',Georgia,serif"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",maxWidth:960,width:"100%",margin:"0 auto"}}>
+        {screen==="login"&&<div style={{flex:1,overflowY:"auto"}}><Login companies={companies} onLogin={login} onCreateCompany={()=>setScreen("createCompany")}/></div>}
+        {screen==="createCompany"&&<div style={{flex:1,overflowY:"auto"}}><CreateCompany onCreate={createCo} onBack={()=>setScreen("login")}/></div>}
+        {screen==="admin"&&co&&<AdminApp company={co} onUpdate={updateCo} onLogout={logout}/>}
+        {screen==="employee"&&co&&<EmployeeApp company={co} userId={userId} onLogout={logout}/>}
       </div>
     </div>
   );
