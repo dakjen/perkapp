@@ -21,6 +21,7 @@ create table companies (
   stripe_subscription_id text unique,
   stripe_treasury_account_id text unique,
   -- Billing
+  max_members integer default 3,
   plan text default 'starter' check (plan in ('starter','growth','scale')),
   created_at timestamptz default now(),
   updated_at timestamptz default now()

@@ -263,35 +263,59 @@ function Login({onLogin,onCreateCompany}){
 }
 
 // ── CREATE COMPANY ─────────────────────────────────────────────────────────
+const PLANS=[
+  {id:"starter",name:"Starter",members:3,price:19,desc:"For small teams getting started"},
+  {id:"growth",name:"Growth",members:10,price:49,desc:"For growing teams up to 10"},
+  {id:"scale",name:"Scale",members:25,price:99,desc:"For larger organizations up to 25"},
+];
+
 function CreateCompany({onCreate,onBack}){
+  const [step,setStep]=useState(1);
   const [name,setName]=useState("");
   const [email,setEmail]=useState("");
   const [pass,setPass]=useState("");
+  const [plan,setPlan]=useState("starter");
   const [loading,setLoading]=useState(false);
   const [err,setErr]=useState("");
+  const selectedPlan=PLANS.find(p=>p.id===plan);
   const handleCreate=async()=>{
     if(!name||!email||!pass)return;
     setLoading(true);setErr("");
     try{
-      const res=await fetch("/api/companies",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password:pass})});
+      const res=await fetch("/api/companies",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password:pass,plan,team_size:selectedPlan.members})});
       const data=await res.json();
       if(!res.ok){setErr(data.error||"Failed to create company");setLoading(false);return;}
       onCreate(data.company);
     }catch(e){setErr("Something went wrong");setLoading(false);}
   };
-  return (
+
+  if(step===1) return (
     <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,fontSize:14,cursor:"pointer",marginBottom:20,padding:0}}>← Back</button>
-      <div style={{fontSize:22,fontWeight:900,color:C.text,marginBottom:4}}>Create your company</div>
-      <div style={{fontSize:14,color:C.muted,marginBottom:24}}>Set up your perk. account</div>
-      <Field label="Company Name" value={name} onChange={setName} placeholder="Studio Nova"/>
+      <div style={{fontSize:22,fontWeight:900,color:C.text,marginBottom:4}}>Choose your plan</div>
+      <div style={{fontSize:14,color:C.muted,marginBottom:24}}>Select the plan that fits your team</div>
+      {PLANS.map(p=>(
+        <div key={p.id} onClick={()=>setPlan(p.id)} style={{background:plan===p.id?C.accentBg:C.card,border:`2px solid ${plan===p.id?C.accent:C.border}`,borderRadius:18,padding:"18px",marginBottom:12,cursor:"pointer"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+            <div style={{fontSize:17,fontWeight:800,color:plan===p.id?C.accent:C.text}}>{p.name}</div>
+            <div style={{fontSize:20,fontWeight:800,color:C.accent,fontFamily:"'Playfair Display',serif"}}>${p.price}<span style={{fontSize:12,fontWeight:400,color:C.muted}}>/mo</span></div>
+          </div>
+          <div style={{fontSize:13,color:C.muted,marginBottom:4}}>{p.desc}</div>
+          <div style={{fontSize:12,color:plan===p.id?C.accent:C.muted,fontWeight:700}}>Up to {p.members} team members</div>
+        </div>
+      ))}
+      <Btn onClick={()=>setStep(2)} style={{marginTop:8}}>Continue</Btn>
+    </div>
+  );
+
+  return (
+    <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
+      <button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:C.muted,fontSize:14,cursor:"pointer",marginBottom:20,padding:0}}>← Back</button>
+      <div style={{fontSize:22,fontWeight:900,color:C.text,marginBottom:4}}>Create your account</div>
+      <div style={{fontSize:14,color:C.muted,marginBottom:24}}>{selectedPlan.name} plan · ${selectedPlan.price}/mo · up to {selectedPlan.members} members</div>
+      <Field label="Company Name" value={name} onChange={setName} placeholder="Acme Inc"/>
       <Field label="Admin Email" value={email} onChange={setEmail} type="email" placeholder="you@company.com"/>
       <Field label="Password" value={pass} onChange={setPass} type="password" placeholder="Choose a password"/>
-      <div style={{background:C.card,borderRadius:14,padding:14,border:`1px solid ${C.border}`,marginBottom:20}}>
-        <div style={{fontSize:13,color:C.muted,lineHeight:1.7}}>
-          Pricing: <span style={{color:C.accent,fontWeight:700}}>$19/mo</span> base (up to 3 members) + <span style={{color:C.accent,fontWeight:700}}>$5/mo</span> per additional member.
-        </div>
-      </div>
       {err&&<div style={{color:C.danger,fontSize:13,marginBottom:14,padding:"10px 14px",background:"#FDECEA",borderRadius:10}}>{err}</div>}
       <Btn onClick={handleCreate} disabled={!name||!email||!pass||loading}>{loading?"Creating...":"Create Account"}</Btn>
     </div>
@@ -779,7 +803,7 @@ function AdminAccount({company,onUpdate,onShowHIW}){
   const [section,setSection]=useState("account");
   const [addingFunds,setAddingFunds]=useState(false);
   const [fundAmount,setFundAmount]=useState("");
-  const [readIds,setReadIds]=useState([]);
+  const [readIds,setReadIds]=useState(()=>{try{return JSON.parse(localStorage.getItem("perk_read_notifs")||"[]");}catch{return[];}});
   const PRESETS=["#5C6B2E","#3D4A1A","#7A9E4E","#8B7355","#4A6FA5","#C0392B","#B8972A","#6B5B45","#556B4A","#2C3E35"];
   const handleLogo=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>onUpdate({...company,logo:ev.target.result});r.readAsDataURL(file);};
   const bc=company.brandColor||C.accent;
@@ -798,7 +822,7 @@ function AdminAccount({company,onUpdate,onShowHIW}){
       <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.bg,flexShrink:0}}>
         {[["account","Account"],["branding","Branding"],["notifs","Messages"]].map(([id,label])=>(
           <button key={id} onClick={()=>setSection(id)} style={{flex:1,padding:"14px 0",background:"none",border:"none",borderBottom:`2px solid ${section===id?C.accent:"transparent"}`,color:section===id?C.accent:C.muted,fontSize:13,fontWeight:700,cursor:"pointer",position:"relative"}}>
-            {label}{id==="notifs"&&unread>0&&<span style={{position:"absolute",top:8,right:"50%",transform:"translateX(16px)",background:C.danger,color:C.white,fontSize:9,fontWeight:800,width:16,height:16,borderRadius:"50%",display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{unread}</span>}
+            {label}{id==="notifs"&&unread>0&&<span style={{position:"absolute",top:6,right:8,background:C.danger,color:C.white,fontSize:9,fontWeight:800,width:16,height:16,borderRadius:"50%",display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{unread}</span>}
           </button>
         ))}
       </div>
@@ -893,7 +917,7 @@ function AdminAccount({company,onUpdate,onShowHIW}){
               const isRead=readIds.includes(n.id);
               const NIcon=NOTIF_ICONS[n.type]||Info;
               return (
-                <Card key={n.id} onClick={()=>setReadIds(p=>[...new Set([...p,n.id])])} style={{opacity:isRead?0.6:1}}>
+                <Card key={n.id} onClick={()=>{const updated=[...new Set([...readIds,n.id])];setReadIds(updated);try{localStorage.setItem("perk_read_notifs",JSON.stringify(updated));}catch{}}} style={{opacity:isRead?0.6:1}}>
                   <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
                     <div style={{width:40,height:40,borderRadius:12,background:isRead?C.surface:C.accentBg,border:`1px solid ${isRead?C.border:C.accent}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                       <NIcon size={18} color={isRead?C.muted:C.accent}/>
@@ -935,10 +959,36 @@ function AdminApp({company,onUpdate,onRefresh,onLogout}){
     await fetch("/api/transactions",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,status,rejection_note:note})});
     onRefresh();
   };
+  const maxMembers=company.max_members||3;
   const handleAddMember=async(m)=>{
     await fetch("/api/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({company_id:company.id,name:m.name,email:m.email,password:m.pass,employment_type:m.type,stipend_amount:m.stipend,stipend_frequency:m.frequency,categories:m.categories})});
     onRefresh();setSub(null);
   };
+  const tryAddMember=()=>{
+    if(company.members.length>=maxMembers){setSub("upgrade");return;}
+    setSub("addMember");
+  };
+  if(sub==="upgrade") return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      <BackHeader title="Upgrade plan" onBack={()=>setSub(null)}/>
+      <div style={{flex:1,overflowY:"auto",padding:20}}>
+        <div style={{textAlign:"center",padding:"40px 20px"}}>
+          <AlertTriangle size={40} color={C.warning} style={{marginBottom:16}}/>
+          <div style={{fontSize:20,fontWeight:800,color:C.text,marginBottom:8}}>Team limit reached</div>
+          <div style={{fontSize:14,color:C.muted,lineHeight:1.7,marginBottom:24}}>Your {company.plan||"starter"} plan supports up to {maxMembers} members. Upgrade to add more team members.</div>
+          {PLANS.filter(p=>p.members>maxMembers).map(p=>(
+            <div key={p.id} style={{background:C.card,border:`1.5px solid ${C.border}`,borderRadius:18,padding:"18px",marginBottom:12,textAlign:"left"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div><div style={{fontSize:16,fontWeight:800,color:C.text}}>{p.name}</div><div style={{fontSize:12,color:C.muted}}>Up to {p.members} members</div></div>
+                <div style={{fontSize:18,fontWeight:800,color:C.accent}}>${p.price}/mo</div>
+              </div>
+            </div>
+          ))}
+          <div style={{fontSize:13,color:C.muted,marginTop:16}}>Contact us to upgrade your plan.</div>
+        </div>
+      </div>
+    </div>
+  );
   if(sub==="addMember") return <AddMember onAdd={handleAddMember} onBack={()=>setSub(null)}/>;
   if(sub==="hiw") return <HowItWorks company={company} onBack={()=>setSub(null)}/>;
   return (
@@ -952,7 +1002,7 @@ function AdminApp({company,onUpdate,onRefresh,onLogout}){
       </div>
       <div style={{flex:1,overflowY:"auto"}}>
         {tab==="dashboard"&&<AdminDash company={company} onHIW={()=>setSub("hiw")}/>}
-        {tab==="team"&&<AdminTeam company={company} onAdd={()=>setSub("addMember")} onUpdate={onUpdate}/>}
+        {tab==="team"&&<AdminTeam company={company} onAdd={tryAddMember} onUpdate={onUpdate}/>}
         {tab==="approvals"&&<AdminApprovals company={company} onUpdate={updateTx}/>}
         {tab==="yearend"&&<AdminYearEnd company={company}/>}
         {tab==="account"&&<AdminAccount company={company} onUpdate={onUpdate} onShowHIW={()=>setSub("hiw")}/>}

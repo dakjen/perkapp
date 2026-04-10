@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const [company] = await sql`
     SELECT id, name, admin_email, brand_color, logo_url, account_balance,
-           stripe_customer_id, stripe_subscription_id, stripe_treasury_account_id, plan,
+           stripe_customer_id, stripe_subscription_id, stripe_treasury_account_id, plan, max_members,
            created_at, updated_at
     FROM companies WHERE id = ${id}
   `
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password } = await req.json()
+    const { name, email, password, plan, team_size } = await req.json()
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
 
     // 3. Create the company record
     const [company] = await sql`
-      INSERT INTO companies (name, admin_email, admin_password_hash, stripe_customer_id, stripe_subscription_id, stripe_treasury_account_id)
-      VALUES (${name}, ${email}, ${passwordHash}, ${customer.id}, ${subscription.id}, ${walletId})
+      INSERT INTO companies (name, admin_email, admin_password_hash, stripe_customer_id, stripe_subscription_id, stripe_treasury_account_id, plan, max_members)
+      VALUES (${name}, ${email}, ${passwordHash}, ${customer.id}, ${subscription.id}, ${walletId}, ${plan || 'starter'}, ${team_size || 3})
       RETURNING *
     `
 
