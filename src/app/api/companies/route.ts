@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { hash } from 'bcryptjs'
 import { getDb } from '@/lib/db'
 import { createCompanySubscription } from '@/lib/stripe'
 
@@ -11,6 +12,7 @@ export async function POST(req: NextRequest) {
     }
 
     const sql = getDb()
+    const passwordHash = await hash(password, 12)
 
     // 1. Create Stripe customer + subscription
     const { customer, subscription } = await createCompanySubscription(name, email, 0)
@@ -18,7 +20,7 @@ export async function POST(req: NextRequest) {
     // 2. Create the company record
     const [company] = await sql`
       INSERT INTO companies (name, admin_email, admin_password_hash, stripe_customer_id, stripe_subscription_id)
-      VALUES (${name}, ${email}, ${password}, ${customer.id}, ${subscription.id})
+      VALUES (${name}, ${email}, ${passwordHash}, ${customer.id}, ${subscription.id})
       RETURNING *
     `
 
