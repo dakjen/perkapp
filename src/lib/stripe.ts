@@ -184,36 +184,17 @@ export const PLAN_CONFIG: Record<string, { priceCents: number; maxMembers: numbe
   scale:   { priceCents: 9900,  maxMembers: 25, name: 'Scale'   },
 }
 
-// ── Get or create a Stripe Price for a plan ──────────────────────────────
-// Looks up an existing price by metadata, or creates product + price on the fly.
-export async function getOrCreatePlanPrice(planId: string): Promise<string> {
-  const config = PLAN_CONFIG[planId]
-  if (!config) throw new Error(`Unknown plan: ${planId}`)
+// ── Stripe Price IDs (created once, never duplicated) ────────────────────
+const PLAN_PRICE_IDS: Record<string, string> = {
+  starter: process.env.STRIPE_PRICE_STARTER!,
+  growth:  process.env.STRIPE_PRICE_GROWTH!,
+  scale:   process.env.STRIPE_PRICE_SCALE!,
+}
 
-  // Search for an existing active price with matching metadata
-  const existing = await stripe.prices.search({
-    query: `metadata["perk_plan"]:"${planId}" active:"true"`,
-  })
-
-  if (existing.data.length > 0) {
-    return existing.data[0].id
-  }
-
-  // Create product + price
-  const product = await stripe.products.create({
-    name: `perk. ${config.name} Plan`,
-    metadata: { perk_plan: planId },
-  })
-
-  const price = await stripe.prices.create({
-    product: product.id,
-    currency: 'usd',
-    unit_amount: config.priceCents,
-    recurring: { interval: 'month' },
-    metadata: { perk_plan: planId },
-  })
-
-  return price.id
+export function getPlanPriceId(planId: string): string {
+  const priceId = PLAN_PRICE_IDS[planId]
+  if (!priceId) throw new Error(`Unknown plan or missing price env var: ${planId}`)
+  return priceId
 }
 
 // ── Create Stripe Checkout Session ───────────────────────────────────────
@@ -224,7 +205,7 @@ export async function createCheckoutSession(opts: {
   passwordHash: string
   teamSize: number
 }): Promise<Stripe.Checkout.Session> {
-  const priceId = await getOrCreatePlanPrice(opts.planId)
+  const priceId = getPlanPriceId(opts.planId)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000'
 
   const config = PLAN_CONFIG[opts.planId]
