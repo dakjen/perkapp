@@ -354,6 +354,25 @@ function CreateCompany({onCreate,onBack}){
         </div>
       </div>
       <div style={{flex:1,overflowY:"auto",background:C.bg}}>
+        <div style={{padding:"20px 20px 0"}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:"16px",marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:8}}>What you get with perk.</div>
+            <div style={{fontSize:13,color:C.muted,lineHeight:1.7}}>
+              {[
+                `Virtual debit cards for up to ${selectedPlan.members} team members`,
+                "Per-category spending controls (wellness, fitness, meals, etc.)",
+                "Real-time transaction approvals",
+                "Automated stipend resets (monthly or quarterly)",
+                "Year-end tax reporting for W-2 and 1099 workers",
+              ].map((item,i)=>(
+                <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:4}}>
+                  <CheckCircle size={14} color={C.accent} style={{flexShrink:0,marginTop:2}}/>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
         <EmbeddedCheckoutProvider stripe={stripePromise} options={{clientSecret}}>
           <EmbeddedCheckout className="perk-checkout"/>
         </EmbeddedCheckoutProvider>
