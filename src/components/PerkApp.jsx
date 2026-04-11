@@ -344,19 +344,6 @@ function CreateCompany({onCreate,onBack}){
     </div>
   );
 
-  return (
-    <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
-      <button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:C.muted,fontSize:14,cursor:"pointer",marginBottom:20,padding:0}}>← Back</button>
-      <div style={{fontSize:22,fontWeight:900,color:C.text,marginBottom:4}}>Create your account</div>
-      <div style={{fontSize:14,color:C.muted,marginBottom:24}}>{selectedPlan.name} plan · ${selectedPlan.price}/mo · up to {selectedPlan.members} members</div>
-      <Field label="Company Name" value={name} onChange={setName} placeholder="Acme Inc"/>
-      <Field label="Admin Email" value={email} onChange={setEmail} type="email" placeholder="you@company.com"/>
-      <Field label="Password" value={pass} onChange={setPass} type="password" placeholder="Choose a password"/>
-      {err&&<div style={{color:C.danger,fontSize:13,marginBottom:14,padding:"10px 14px",background:"#FDECEA",borderRadius:10}}>{err}</div>}
-      <Btn onClick={startCheckout} disabled={!name||!email||!pass||loading}>{loading?"Setting up checkout...":"Continue to Payment"}</Btn>
-    </div>
-  );
-
   if(step===3&&clientSecret) return (
     <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,background:C.bg,flexShrink:0}}>
@@ -374,7 +361,18 @@ function CreateCompany({onCreate,onBack}){
     </div>
   );
 
-  return null;
+  return (
+    <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
+      <button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:C.muted,fontSize:14,cursor:"pointer",marginBottom:20,padding:0}}>← Back</button>
+      <div style={{fontSize:22,fontWeight:900,color:C.text,marginBottom:4}}>Create your account</div>
+      <div style={{fontSize:14,color:C.muted,marginBottom:24}}>{selectedPlan.name} plan · ${selectedPlan.price}/mo · up to {selectedPlan.members} members</div>
+      <Field label="Company Name" value={name} onChange={setName} placeholder="Acme Inc"/>
+      <Field label="Admin Email" value={email} onChange={setEmail} type="email" placeholder="you@company.com"/>
+      <Field label="Password" value={pass} onChange={setPass} type="password" placeholder="Choose a password"/>
+      {err&&<div style={{color:C.danger,fontSize:13,marginBottom:14,padding:"10px 14px",background:"#FDECEA",borderRadius:10}}>{err}</div>}
+      <Btn onClick={startCheckout} disabled={!name||!email||!pass||loading}>{loading?"Setting up checkout...":"Continue to Payment"}</Btn>
+    </div>
+  );
 }
 
 // ── ADMIN DASHBOARD ────────────────────────────────────────────────────────
