@@ -1,5 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Building2, User, CreditCard, Lock, CheckCircle, RefreshCw, FileText, Lightbulb, Info, AlertTriangle, Sparkles, Leaf, Award, Star, Trophy, Upload, ChevronRight, DollarSign, Shield, Laptop, Coffee, Heart, Globe, Clock, BookOpen, Dumbbell, Shirt, Home, Plane, Palette, Baby, Handshake, Bell, Activity, TrendingUp, Wallet, Gift } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 const C = {
   bg:"#F5F2EC", surface:"#EDEAE0", card:"#FFFFFF", border:"#DDD9CE",
@@ -284,17 +288,18 @@ function CreateCompany({onCreate,onBack}){
   const [pass,setPass]=useState("");
   const [loading,setLoading]=useState(false);
   const [err,setErr]=useState("");
+  const [clientSecret,setClientSecret]=useState(null);
   const size=Number(teamSize)||0;
   const selectedPlan=getPlanForSize(size);
 
-  const handleCreate=async()=>{
+  const startCheckout=async()=>{
     if(!name||!email||!pass||!selectedPlan)return;
     setLoading(true);setErr("");
     try{
       const res=await fetch("/api/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password:pass,plan:selectedPlan.id,team_size:selectedPlan.members})});
       const data=await res.json();
       if(!res.ok){setErr(data.error||"Failed to start checkout");setLoading(false);return;}
-      if(data.url){window.location.href=data.url;}else{setErr("No checkout URL returned");setLoading(false);}
+      setClientSecret(data.clientSecret);setStep(3);setLoading(false);
     }catch(e){setErr("Something went wrong");setLoading(false);}
   };
 
@@ -348,9 +353,28 @@ function CreateCompany({onCreate,onBack}){
       <Field label="Admin Email" value={email} onChange={setEmail} type="email" placeholder="you@company.com"/>
       <Field label="Password" value={pass} onChange={setPass} type="password" placeholder="Choose a password"/>
       {err&&<div style={{color:C.danger,fontSize:13,marginBottom:14,padding:"10px 14px",background:"#FDECEA",borderRadius:10}}>{err}</div>}
-      <Btn onClick={handleCreate} disabled={!name||!email||!pass||loading}>{loading?"Redirecting to checkout...":"Proceed to Checkout"}</Btn>
+      <Btn onClick={startCheckout} disabled={!name||!email||!pass||loading}>{loading?"Setting up checkout...":"Continue to Payment"}</Btn>
     </div>
   );
+
+  if(step===3&&clientSecret) return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,background:C.bg,flexShrink:0}}>
+        <button onClick={()=>{setStep(2);setClientSecret(null);}} style={{background:"none",border:"none",color:C.muted,fontSize:22,cursor:"pointer",padding:0}}>←</button>
+        <div>
+          <div style={{fontSize:17,fontWeight:800,color:C.text}}>Complete your subscription</div>
+          <div style={{fontSize:12,color:C.muted}}>{selectedPlan.name} plan · ${selectedPlan.price}/mo</div>
+        </div>
+      </div>
+      <div style={{flex:1,overflowY:"auto",background:C.bg}}>
+        <EmbeddedCheckoutProvider stripe={stripePromise} options={{clientSecret}}>
+          <EmbeddedCheckout className="perk-checkout"/>
+        </EmbeddedCheckoutProvider>
+      </div>
+    </div>
+  );
+
+  return null;
 }
 
 // ── ADMIN DASHBOARD ────────────────────────────────────────────────────────

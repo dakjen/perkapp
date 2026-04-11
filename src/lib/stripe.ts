@@ -1,7 +1,7 @@
 import Stripe from 'stripe'
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-04-10',
+  apiVersion: '2025-03-31.basil' as any,
 })
 
 // ── Pricing ───────────────────────────────────────────────────────────────
@@ -231,7 +231,7 @@ export async function createCheckoutSession(opts: {
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
-    payment_method_types: ['card'],
+    ui_mode: 'embedded',
     customer_email: opts.email,
     line_items: [
       {
@@ -241,18 +241,10 @@ export async function createCheckoutSession(opts: {
     ],
     custom_text: {
       submit: {
-        message: `You're signing up for the ${config.name} plan — up to ${config.maxMembers} team members with virtual cards, spending controls, and year-end tax reporting. You can cancel anytime.`,
-      },
-      terms_of_service_acceptance: {
-        message: 'By subscribing, you agree to our terms of service.',
+        message: `${config.name} plan — up to ${config.maxMembers} team members with virtual cards, spending controls, and year-end tax reporting. Cancel anytime.`,
       },
     },
-    consent_collection: {
-      terms_of_service: 'required',
-    },
-    phone_number_collection: { enabled: true },
-    success_url: `${appUrl}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}?checkout=cancelled`,
+    return_url: `${appUrl}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     metadata: {
       perk_signup: 'true',
       company_name: opts.name,

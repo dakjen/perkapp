@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       teamSize: team_size || PLAN_CONFIG[plan].maxMembers,
     })
 
-    return NextResponse.json({ url: session.url })
+    return NextResponse.json({ clientSecret: session.client_secret })
   } catch (err: any) {
     console.error('Checkout session error:', err)
     return NextResponse.json({ error: err.message ?? 'Internal server error' }, { status: 500 })
