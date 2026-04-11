@@ -227,11 +227,30 @@ export async function createCheckoutSession(opts: {
   const priceId = await getOrCreatePlanPrice(opts.planId)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000'
 
+  const config = PLAN_CONFIG[opts.planId]
+
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     payment_method_types: ['card'],
     customer_email: opts.email,
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ],
+    custom_text: {
+      submit: {
+        message: `You're signing up for the ${config.name} plan — up to ${config.maxMembers} team members with virtual cards, spending controls, and year-end tax reporting. You can cancel anytime.`,
+      },
+      terms_of_service_acceptance: {
+        message: 'By subscribing, you agree to our terms of service.',
+      },
+    },
+    consent_collection: {
+      terms_of_service: 'required',
+    },
+    phone_number_collection: { enabled: true },
     success_url: `${appUrl}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}?checkout=cancelled`,
     metadata: {
@@ -243,6 +262,7 @@ export async function createCheckoutSession(opts: {
       team_size: String(opts.teamSize),
     },
     subscription_data: {
+      description: `perk. ${config.name} — benefits platform for up to ${config.maxMembers} team members`,
       metadata: {
         perk_plan: opts.planId,
         company_name: opts.name,
