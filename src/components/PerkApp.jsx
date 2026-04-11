@@ -269,20 +269,29 @@ const PLANS=[
   {id:"scale",name:"Scale",members:25,price:99,desc:"For larger organizations up to 25"},
 ];
 
+function getPlanForSize(n){
+  if(n<=3) return PLANS[0];
+  if(n<=10) return PLANS[1];
+  if(n<=25) return PLANS[2];
+  return null;
+}
+
 function CreateCompany({onCreate,onBack}){
   const [step,setStep]=useState(1);
+  const [teamSize,setTeamSize]=useState("");
   const [name,setName]=useState("");
   const [email,setEmail]=useState("");
   const [pass,setPass]=useState("");
-  const [plan,setPlan]=useState("starter");
   const [loading,setLoading]=useState(false);
   const [err,setErr]=useState("");
-  const selectedPlan=PLANS.find(p=>p.id===plan);
+  const size=Number(teamSize)||0;
+  const selectedPlan=getPlanForSize(size);
+
   const handleCreate=async()=>{
-    if(!name||!email||!pass)return;
+    if(!name||!email||!pass||!selectedPlan)return;
     setLoading(true);setErr("");
     try{
-      const res=await fetch("/api/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password:pass,plan,team_size:selectedPlan.members})});
+      const res=await fetch("/api/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password:pass,plan:selectedPlan.id,team_size:selectedPlan.members})});
       const data=await res.json();
       if(!res.ok){setErr(data.error||"Failed to start checkout");setLoading(false);return;}
       if(data.url){window.location.href=data.url;}else{setErr("No checkout URL returned");setLoading(false);}
@@ -292,19 +301,41 @@ function CreateCompany({onCreate,onBack}){
   if(step===1) return (
     <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,fontSize:14,cursor:"pointer",marginBottom:20,padding:0}}>← Back</button>
-      <div style={{fontSize:22,fontWeight:900,color:C.text,marginBottom:4}}>Choose your plan</div>
-      <div style={{fontSize:14,color:C.muted,marginBottom:24}}>Select the plan that fits your team</div>
-      {PLANS.map(p=>(
-        <div key={p.id} onClick={()=>setPlan(p.id)} style={{background:plan===p.id?C.accentBg:C.card,border:`2px solid ${plan===p.id?C.accent:C.border}`,borderRadius:18,padding:"18px",marginBottom:12,cursor:"pointer"}}>
+      <div style={{fontSize:22,fontWeight:900,color:C.text,marginBottom:4}}>How big is your team?</div>
+      <div style={{fontSize:14,color:C.muted,marginBottom:24}}>We'll find the right plan for you</div>
+      <Field label="Number of team members" value={teamSize} onChange={setTeamSize} type="number" placeholder="e.g. 5"/>
+      {size>0&&size<=25&&selectedPlan&&(
+        <div style={{background:C.accentBg,border:`2px solid ${C.accent}`,borderRadius:18,padding:"18px",marginBottom:16,marginTop:8}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <div style={{fontSize:17,fontWeight:800,color:plan===p.id?C.accent:C.text}}>{p.name}</div>
-            <div style={{fontSize:20,fontWeight:800,color:C.accent,fontFamily:"'Playfair Display',serif"}}>${p.price}<span style={{fontSize:12,fontWeight:400,color:C.muted}}>/mo</span></div>
+            <div>
+              <div style={{fontSize:11,color:C.accent,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Recommended plan</div>
+              <div style={{fontSize:20,fontWeight:800,color:C.accent}}>{selectedPlan.name}</div>
+            </div>
+            <div style={{fontSize:24,fontWeight:800,color:C.accent,fontFamily:"'Playfair Display',serif"}}>${selectedPlan.price}<span style={{fontSize:12,fontWeight:400,color:C.muted}}>/mo</span></div>
           </div>
-          <div style={{fontSize:13,color:C.muted,marginBottom:4}}>{p.desc}</div>
-          <div style={{fontSize:12,color:plan===p.id?C.accent:C.muted,fontWeight:700}}>Up to {p.members} team members</div>
+          <div style={{fontSize:13,color:C.muted}}>{selectedPlan.desc}</div>
+          <div style={{fontSize:12,color:C.accent,fontWeight:700,marginTop:6}}>Includes up to {selectedPlan.members} team members</div>
         </div>
-      ))}
-      <Btn onClick={()=>setStep(2)} style={{marginTop:8}}>Continue</Btn>
+      )}
+      {size>25&&(
+        <div style={{background:"#FDF0EA",border:`1.5px solid ${C.pop}`,borderRadius:14,padding:"14px",marginTop:8}}>
+          <div style={{fontSize:14,fontWeight:700,color:C.pop,marginBottom:4}}>Need more than 25 seats?</div>
+          <div style={{fontSize:13,color:C.muted}}>Contact us for a custom enterprise plan.</div>
+        </div>
+      )}
+      <Btn onClick={()=>setStep(2)} disabled={!size||size<1||size>25||!selectedPlan} style={{marginTop:16}}>Continue</Btn>
+      <div style={{marginTop:20}}>
+        <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>All plans</div>
+        {PLANS.map(p=>(
+          <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${C.border}`}}>
+            <div>
+              <span style={{fontSize:14,fontWeight:700,color:selectedPlan?.id===p.id?C.accent:C.text}}>{p.name}</span>
+              <span style={{fontSize:12,color:C.muted,marginLeft:8}}>up to {p.members} members</span>
+            </div>
+            <span style={{fontSize:14,fontWeight:700,color:C.accent}}>${p.price}/mo</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 
