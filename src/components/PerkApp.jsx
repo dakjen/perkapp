@@ -282,10 +282,10 @@ function CreateCompany({onCreate,onBack}){
     if(!name||!email||!pass)return;
     setLoading(true);setErr("");
     try{
-      const res=await fetch("/api/companies",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password:pass,plan,team_size:selectedPlan.members})});
+      const res=await fetch("/api/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password:pass,plan,team_size:selectedPlan.members})});
       const data=await res.json();
-      if(!res.ok){setErr(data.error||"Failed to create company");setLoading(false);return;}
-      onCreate(data.company);
+      if(!res.ok){setErr(data.error||"Failed to start checkout");setLoading(false);return;}
+      if(data.url){window.location.href=data.url;}else{setErr("No checkout URL returned");setLoading(false);}
     }catch(e){setErr("Something went wrong");setLoading(false);}
   };
 
@@ -317,7 +317,7 @@ function CreateCompany({onCreate,onBack}){
       <Field label="Admin Email" value={email} onChange={setEmail} type="email" placeholder="you@company.com"/>
       <Field label="Password" value={pass} onChange={setPass} type="password" placeholder="Choose a password"/>
       {err&&<div style={{color:C.danger,fontSize:13,marginBottom:14,padding:"10px 14px",background:"#FDECEA",borderRadius:10}}>{err}</div>}
-      <Btn onClick={handleCreate} disabled={!name||!email||!pass||loading}>{loading?"Creating...":"Create Account"}</Btn>
+      <Btn onClick={handleCreate} disabled={!name||!email||!pass||loading}>{loading?"Redirecting to checkout...":"Proceed to Checkout"}</Btn>
     </div>
   );
 }
@@ -1477,7 +1477,43 @@ export default function App(){
     return adaptCompany(company,members,transactions,perks);
   };
 
+  const [checkoutMsg,setCheckoutMsg]=useState(null);
+
   useEffect(()=>{
+    // Handle Stripe Checkout redirect
+    const params=new URLSearchParams(window.location.search);
+    const checkoutStatus=params.get("checkout");
+    const sessionId=params.get("session_id");
+
+    if(checkoutStatus==="success"&&sessionId){
+      // Clean URL
+      window.history.replaceState({},"",window.location.pathname);
+      setScreen("loading");
+      fetch(`/api/checkout?session_id=${sessionId}`)
+        .then(r=>r.json())
+        .then(data=>{
+          if(data.company){
+            setCheckoutMsg("Account created! Please log in.");
+            setScreen("login");
+          }else{
+            setCheckoutMsg(data.error||"Something went wrong verifying your payment.");
+            setScreen("login");
+          }
+        })
+        .catch(()=>{
+          setCheckoutMsg("Payment received but account setup failed. Please contact support.");
+          setScreen("login");
+        });
+      return;
+    }
+
+    if(checkoutStatus==="cancelled"){
+      window.history.replaceState({},"",window.location.pathname);
+      setCheckoutMsg("Checkout cancelled. You can try again.");
+      setScreen("createCompany");
+      return;
+    }
+
     const saved=loadSession();
     if(saved&&saved.companyId){
       fetchData(saved.companyId).then(data=>{
@@ -1519,8 +1555,9 @@ export default function App(){
   return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",fontFamily:"'Source Serif 4',Georgia,serif"}}>
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",maxWidth:960,width:"100%",margin:"0 auto"}}>
-        {screen==="login"&&<div style={{flex:1,overflowY:"auto"}}><Login onLogin={login} onCreateCompany={()=>setScreen("createCompany")}/></div>}
-        {screen==="createCompany"&&<div style={{flex:1,overflowY:"auto"}}><CreateCompany onCreate={createCo} onBack={()=>setScreen("login")}/></div>}
+        {checkoutMsg&&(screen==="login"||screen==="createCompany")&&<div style={{padding:"12px 20px",background:checkoutMsg.includes("created")?"#EBF0DC":"#FDF0EA",color:checkoutMsg.includes("created")?C.success:C.pop,fontSize:14,fontWeight:600,textAlign:"center",borderBottom:`1px solid ${C.border}`}}>{checkoutMsg}</div>}
+        {screen==="login"&&<div style={{flex:1,overflowY:"auto"}}><Login onLogin={login} onCreateCompany={()=>{setCheckoutMsg(null);setScreen("createCompany");}}/></div>}
+        {screen==="createCompany"&&<div style={{flex:1,overflowY:"auto"}}><CreateCompany onCreate={createCo} onBack={()=>{setCheckoutMsg(null);setScreen("login");}}/></div>}
         {screen==="admin"&&companyData&&<AdminApp company={companyData} onUpdate={updateCo} onRefresh={onRefresh} onLogout={logout}/>}
         {screen==="employee"&&companyData&&<EmployeeApp company={companyData} userId={userId} onLogout={logout}/>}
       </div>

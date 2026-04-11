@@ -177,6 +177,139 @@ export function categoriesToMCCs(categories: string[]): string[] {
   return [...new Set(categories.flatMap(c => CATEGORY_MCC_MAP[c] ?? []))]
 }
 
+// ── Plan definitions (must match PerkApp.jsx PLANS) ──────────────────────
+export const PLAN_CONFIG: Record<string, { priceCents: number; maxMembers: number; name: string }> = {
+  starter: { priceCents: 1900,  maxMembers: 3,  name: 'Starter' },
+  growth:  { priceCents: 4900,  maxMembers: 10, name: 'Growth'  },
+  scale:   { priceCents: 9900,  maxMembers: 25, name: 'Scale'   },
+}
+
+// ── Get or create a Stripe Price for a plan ──────────────────────────────
+// Looks up an existing price by metadata, or creates product + price on the fly.
+export async function getOrCreatePlanPrice(planId: string): Promise<string> {
+  const config = PLAN_CONFIG[planId]
+  if (!config) throw new Error(`Unknown plan: ${planId}`)
+
+  // Search for an existing active price with matching metadata
+  const existing = await stripe.prices.search({
+    query: `metadata["perk_plan"]:"${planId}" active:"true"`,
+  })
+
+  if (existing.data.length > 0) {
+    return existing.data[0].id
+  }
+
+  // Create product + price
+  const product = await stripe.products.create({
+    name: `perk. ${config.name} Plan`,
+    metadata: { perk_plan: planId },
+  })
+
+  const price = await stripe.prices.create({
+    product: product.id,
+    currency: 'usd',
+    unit_amount: config.priceCents,
+    recurring: { interval: 'month' },
+    metadata: { perk_plan: planId },
+  })
+
+  return price.id
+}
+
+// ── Create Stripe Checkout Session ───────────────────────────────────────
+export async function createCheckoutSession(opts: {
+  planId: string
+  name: string
+  email: string
+  passwordHash: string
+  teamSize: number
+}): Promise<Stripe.Checkout.Session> {
+  const priceId = await getOrCreatePlanPrice(opts.planId)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000'
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'subscription',
+    payment_method_types: ['card'],
+    customer_email: opts.email,
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: `${appUrl}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}?checkout=cancelled`,
+    metadata: {
+      perk_signup: 'true',
+      company_name: opts.name,
+      admin_email: opts.email,
+      admin_password_hash: opts.passwordHash,
+      plan: opts.planId,
+      team_size: String(opts.teamSize),
+    },
+    subscription_data: {
+      metadata: {
+        perk_plan: opts.planId,
+        company_name: opts.name,
+      },
+    },
+  })
+
+  return session
+}
+
+// ── Provision company from a completed checkout session ──────────────────
+export async function provisionCompanyFromSession(sessionId: string, sql: any): Promise<any> {
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['subscription'],
+  })
+
+  if (session.payment_status !== 'paid') {
+    throw new Error('Session not paid')
+  }
+
+  const meta = session.metadata
+  if (!meta?.perk_signup) {
+    throw new Error('Not a perk signup session')
+  }
+
+  const customerId = session.customer as string
+  const subscription = session.subscription as Stripe.Subscription
+
+  // Upsert: only create if not already created (handles race between webhook and success page)
+  const [existing] = await sql`
+    SELECT id FROM companies WHERE stripe_customer_id = ${customerId}
+  `
+
+  if (existing) {
+    const [company] = await sql`
+      SELECT id, name, admin_email, plan, max_members, stripe_customer_id, stripe_subscription_id
+      FROM companies WHERE id = ${existing.id}
+    `
+    return company
+  }
+
+  const [company] = await sql`
+    INSERT INTO companies (
+      name, admin_email, admin_password_hash,
+      stripe_customer_id, stripe_subscription_id,
+      plan, max_members
+    ) VALUES (
+      ${meta.company_name}, ${meta.admin_email}, ${meta.admin_password_hash},
+      ${customerId}, ${subscription.id},
+      ${meta.plan || 'starter'}, ${parseInt(meta.team_size || '3', 10)}
+    )
+    ON CONFLICT (stripe_customer_id) DO NOTHING
+    RETURNING *
+  `
+
+  // If ON CONFLICT hit, fetch the existing row
+  if (!company) {
+    const [existing2] = await sql`
+      SELECT id, name, admin_email, plan, max_members, stripe_customer_id, stripe_subscription_id
+      FROM companies WHERE stripe_customer_id = ${customerId}
+    `
+    return existing2
+  }
+
+  return company
+}
+
 // ── Webhook: verify Stripe signature ─────────────────────────────────────
 export function constructWebhookEvent(body: string, signature: string) {
   return stripe.webhooks.constructEvent(

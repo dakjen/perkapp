@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { constructWebhookEvent } from '@/lib/stripe'
+import { constructWebhookEvent, provisionCompanyFromSession } from '@/lib/stripe'
 import { getDb } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
@@ -22,6 +22,20 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (event.type) {
+
+      // Checkout session completed — provision company after payment
+      case 'checkout.session.completed': {
+        const session = event.data.object as any
+        if (session.metadata?.perk_signup === 'true') {
+          try {
+            await provisionCompanyFromSession(session.id, sql)
+            console.log('Company provisioned from webhook for session:', session.id)
+          } catch (err: any) {
+            console.error('Failed to provision company from webhook:', err.message)
+          }
+        }
+        break
+      }
 
       // Card swipe: create a pending transaction
       case 'issuing_authorization.created': {
